@@ -1,0 +1,5 @@
+[app]
+addr=":8081"
+log_file="./storage/logs/NEUOJ-NG.log"
+log_level="debug" # possible values: trace, debug, info, warn, warning, error, fatal, panic
+storage_path="./storage"

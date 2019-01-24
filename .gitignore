@@ -1,0 +1,5 @@
+.idea/
+storage/
+NEUOJ-NG-judgeserver
+config.toml
+*.log
