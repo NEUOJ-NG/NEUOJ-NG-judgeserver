@@ -3,3 +3,67 @@ addr=":8081"
 log_file="./storage/logs/NEUOJ-NG.log"
 log_level="debug" # possible values: trace, debug, info, warn, warning, error, fatal, panic
 storage_path="./storage"
+
+[judgehost]
+username="judgehost"
+password="password"
+configuration="""
+{
+	"clar_categories": {
+		"general": "General issue",
+		"tech": "Technical issue"
+	},
+	"clar_answers": ["No comment", "Read the problem statement carefully"],
+	"clar_queues": {},
+	"clar_default_problem_queue": "",
+	"script_timelimit": 30,
+	"script_memory_limit": 2097152,
+	"script_filesize_limit": 540672,
+	"memory_limit": 524288,
+	"output_limit": 4096,
+	"process_limit": 64,
+	"sourcesize_limit": 256,
+	"sourcefiles_limit": 100,
+	"timelimit_overshoot": "1s|10%",
+	"output_storage_limit": 50000,
+	"output_display_limit": 2000,
+	"verification_required": 0,
+	"score_in_seconds": 0,
+	"show_flags": 1,
+	"show_affiliations": 1,
+	"show_affiliation_logos": 0,
+	"show_pending": 0,
+	"show_teams_submissions": 1,
+	"show_compile": 2,
+	"show_sample_output": 0,
+	"show_balloons_postfreeze": 1,
+	"penalty_time": 20,
+	"compile_penalty": 1,
+	"results_prio": {
+		"memory-limit": "99",
+		"output-limit": "99",
+		"run-error": "99",
+		"timelimit": "99",
+		"wrong-answer": "30",
+		"no-output": "10",
+		"correct": "1"
+	},
+	"results_remap": {},
+	"lazy_eval_results": 1,
+	"enable_printing": 0,
+	"show_relative_time": 0,
+	"time_format": "%H:%M",
+	"default_compare": "compare",
+	"default_run": "run",
+	"allow_registration": 0,
+	"allow_openid_auth": 0,
+	"openid_autocreate_team": 1,
+	"openid_provider": "https://accounts.google.com",
+	"openid_clientid": "",
+	"openid_clientsecret": "",
+	"judgehost_warning": 30,
+	"judgehost_critical": 120,
+	"thumbnail_size": 128,
+	"diskspace_error": 1048576,
+	"show_limits_on_team_page": 0
+}"""

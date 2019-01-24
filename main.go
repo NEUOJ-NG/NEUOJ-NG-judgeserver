@@ -3,6 +3,7 @@ package main
 import (
 	"github.com/NEUOJ-NG/NEUOJ-NG-backend/util"
 	"github.com/NEUOJ-NG/NEUOJ-NG-judgeserver/config"
+	c "github.com/NEUOJ-NG/NEUOJ-NG-judgeserver/controller"
 	"github.com/NEUOJ-NG/NEUOJ-NG-judgeserver/router"
 	"github.com/fvbock/endless"
 	"github.com/gin-gonic/gin"
@@ -22,7 +23,13 @@ func main() {
 	app := gin.Default()
 
 	// init router
-	v4 := app.Group("/api/v4")
+	// test
+	app.GET("/ping", c.Ping)
+	// DOMJudge RESTful API
+	// protected by HTTP Simple Auth
+	v4 := app.Group("/api/v4", gin.BasicAuth(gin.Accounts{
+		config.GetConfig().Judgehost.Username: config.GetConfig().Judgehost.Password,
+	}))
 	router.InitRouter(v4)
 
 	// start hot update handler

@@ -6,6 +6,6 @@ import (
 )
 
 func InitRouter(r *gin.RouterGroup) {
-	// test
-	r.GET("/ping", c.Ping)
+	r.POST("/judgehosts", c.PostJudgehosts)
+	r.GET("/config", c.GetJudgehostConfig)
 }
