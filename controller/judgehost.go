@@ -2,6 +2,7 @@ package controller
 
 import (
 	"github.com/NEUOJ-NG/NEUOJ-NG-judgeserver/config"
+	"github.com/NEUOJ-NG/NEUOJ-NG-judgeserver/form"
 	"github.com/gin-gonic/gin"
 	log "github.com/sirupsen/logrus"
 	"net/http"
@@ -34,12 +35,26 @@ func GetJudgehostConfig(ctx *gin.Context) {
 		// return specific config
 		c, err := config.GetJudgehostConfiguration(name, false)
 		if err != nil {
-			log.Error(err)
+			log.Error(err.Error())
 			ctx.JSON(http.StatusBadRequest, nil)
 		} else {
 			ctx.JSON(http.StatusOK, gin.H{
 				name: c,
 			})
 		}
+	}
+}
+
+func PostJudgehostsInternalError(ctx *gin.Context) {
+	var internalError form.InternalError
+	if err := ctx.ShouldBind(&internalError); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+	} else {
+		// TODO: save internal error and return auto-increment ID
+		log.Debugf("%v", internalError)
+		log.Warnf("receive internal error from judgehost, description: %v",
+			internalError.Description)
+		// now just return fake ID 0
+		ctx.String(http.StatusOK, "0")
 	}
 }
