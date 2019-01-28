@@ -3,6 +3,7 @@ package controller
 import (
 	"github.com/NEUOJ-NG/NEUOJ-NG-judgeserver/config"
 	"github.com/NEUOJ-NG/NEUOJ-NG-judgeserver/form"
+	"github.com/NEUOJ-NG/NEUOJ-NG-judgeserver/mq"
 	"github.com/gin-gonic/gin"
 	log "github.com/sirupsen/logrus"
 	"net/http"
@@ -18,19 +19,23 @@ func PostJudgehosts(ctx *gin.Context) {
 		judgehostVersion = "Unknown"
 	}
 	hostname := ctx.PostForm("hostname")
-	log.Infof("registering judgehost %s version %s",
+	log.Debugf("registering judgehost %s version %s",
 		hostname, judgehostVersion)
 	// TODO: save hostname to the list of judgehosts
 	// TODO: restart unfinished judgings
 	ctx.JSON(http.StatusOK, nil)
 }
 
+// Get judgehost configuration configured in config.toml
 func GetJudgehostConfig(ctx *gin.Context) {
 	name := ctx.Query("name")
 	if name == "" {
 		// return all config
-		c, _ := config.GetJudgehostConfiguration("", true)
-		ctx.JSON(http.StatusOK, c)
+		ctx.Data(
+			http.StatusOK,
+			"application/json; charset=utf-8",
+			[]byte(config.GetConfig().Judgehost.Configuration),
+		)
 	} else {
 		// return specific config
 		c, err := config.GetJudgehostConfiguration(name, false)
@@ -45,6 +50,7 @@ func GetJudgehostConfig(ctx *gin.Context) {
 	}
 }
 
+// API for judgehost to report internal errors.
 func PostJudgehostsInternalError(ctx *gin.Context) {
 	var internalError form.InternalError
 	if err := ctx.ShouldBind(&internalError); err != nil {
@@ -56,5 +62,35 @@ func PostJudgehostsInternalError(ctx *gin.Context) {
 			internalError.Description)
 		// now just return fake ID 0
 		ctx.String(http.StatusOK, "0")
+	}
+}
+
+// Retrieve judging tasks from message queue
+// and give them to judgehost.
+func PostJudgings(ctx *gin.Context) {
+	judgehost := ctx.PostForm("judgehost")
+	log.Debugf("judgehost %s fetching task", judgehost)
+
+	// TODO: update judgehost timestamp in redis
+
+	select {
+	case task := <-mq.ConsumerMessages:
+		log.Debugf("judgehost %s received a task: %s", judgehost, task.Body)
+		_ = task.Ack(false)
+
+		// TODO: perform testcases & executables check and prefetch
+
+		ctx.Data(
+			http.StatusOK,
+			"application/json; charset=utf-8",
+			[]byte(task.Body),
+		)
+	default:
+		log.Debug("no task in channel")
+		ctx.Data(
+			http.StatusOK,
+			"application/json; charset=utf-8",
+			[]byte("{}"),
+		)
 	}
 }

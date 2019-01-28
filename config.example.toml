@@ -4,6 +4,13 @@ log_file="./storage/logs/NEUOJ-NG.log"
 log_level="debug" # possible values: trace, debug, info, warn, warning, error, fatal, panic
 storage_path="./storage"
 
+[amqp]
+addr="127.0.0.1:5672"
+username="guest"
+password="guest"
+queue_name="neuoj"
+queue_durable=true
+
 [judgehost]
 username="judgehost"
 password="password"

@@ -1,9 +1,10 @@
 package main
 
 import (
-	"github.com/NEUOJ-NG/NEUOJ-NG-backend/util"
+	backendUtil "github.com/NEUOJ-NG/NEUOJ-NG-backend/util"
 	"github.com/NEUOJ-NG/NEUOJ-NG-judgeserver/config"
 	c "github.com/NEUOJ-NG/NEUOJ-NG-judgeserver/controller"
+	"github.com/NEUOJ-NG/NEUOJ-NG-judgeserver/mq"
 	"github.com/NEUOJ-NG/NEUOJ-NG-judgeserver/router"
 	"github.com/fvbock/endless"
 	"github.com/gin-gonic/gin"
@@ -12,12 +13,12 @@ import (
 
 func main() {
 	// setup storage dir
-	util.CreateDirOrPanic(config.GetSubmissionStoragePath())
-	util.CreateDirOrPanic(config.GetTestCaseStoragePath())
-	util.CreateDirOrPanic(config.GetExecutableStoragePath())
+	backendUtil.CreateDirOrPanic(config.GetSubmissionStoragePath())
+	backendUtil.CreateDirOrPanic(config.GetTestCaseStoragePath())
+	backendUtil.CreateDirOrPanic(config.GetExecutableStoragePath())
 
 	// setup log
-	util.SetupLog(true, true)
+	backendUtil.SetupLog(true, true)
 
 	// create Gin Engine with Logger and Recovery middleware
 	app := gin.Default()
@@ -32,9 +33,19 @@ func main() {
 	}))
 	router.InitRouter(v4)
 
+	// init message queue
+	err := mq.InitConsumerMQ()
+	if err != nil {
+		log.Fatalf("failed to init consumer message queue: %s", err.Error())
+		return
+	} else {
+		defer mq.ConsumerConnection.Close()
+		defer mq.ConsumerChannel.Close()
+	}
+
 	// start hot update handler
 	// config will be reloaded with SYSUSR1 signal
-	util.SetupConfigHotUpdate()
+	backendUtil.SetupConfigHotUpdate()
 
 	// start server with endless
 	// server will reload with HUP signal
@@ -47,10 +58,9 @@ func main() {
 		log.Info("NEUOJ-NG-judgeserver started")
 		log.Infof("listen %v", config.GetConfig().App.Addr)
 	}
-	err := server.ListenAndServe()
+	err = server.ListenAndServe()
 	if err != nil {
-		log.Fatal("failed to start server")
-		log.Fatal(err)
+		log.Fatalf("failed to start server: %s", err.Error())
 	}
 	log.Info("NEUOJ-NG-judgeserver terminated")
 }
