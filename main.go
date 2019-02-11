@@ -5,6 +5,7 @@ import (
 	"github.com/NEUOJ-NG/NEUOJ-NG-judgeserver/config"
 	c "github.com/NEUOJ-NG/NEUOJ-NG-judgeserver/controller"
 	"github.com/NEUOJ-NG/NEUOJ-NG-judgeserver/mq"
+	myRedis "github.com/NEUOJ-NG/NEUOJ-NG-judgeserver/redis"
 	"github.com/NEUOJ-NG/NEUOJ-NG-judgeserver/router"
 	"github.com/fvbock/endless"
 	"github.com/gin-gonic/gin"
@@ -41,6 +42,16 @@ func main() {
 	} else {
 		defer mq.ConsumerConnection.Close()
 		defer mq.ConsumerChannel.Close()
+	}
+
+	// init redis
+	myRedis.InitRedisClient()
+	// test redis connection with ping
+	if err := myRedis.Client.Ping().Err(); err != nil {
+		log.Fatalf("failed to ping redis server: %s", err.Error())
+		return
+	} else {
+		log.Info("successfully connect to redis")
 	}
 
 	// start hot update handler

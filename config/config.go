@@ -15,9 +15,11 @@ var (
 )
 
 type Config struct {
-	App        appConfig       `toml:"app"`
-	AMQPConfig amqpConfig      `toml:"amqp"`
-	Judgehost  judgehostConfig `toml:"judgehost"`
+	App       appConfig       `toml:"app"`
+	URL       urlConfig       `toml:"url"`
+	AMQP      amqpConfig      `toml:"amqp"`
+	Redis     redisConfig     `toml:"redis"`
+	Judgehost judgehostConfig `toml:"judgehost"`
 }
 
 func GetConfig() *Config {

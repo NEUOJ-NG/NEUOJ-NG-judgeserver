@@ -1,12 +1,18 @@
 package controller
 
 import (
+	"encoding/json"
 	"github.com/NEUOJ-NG/NEUOJ-NG-judgeserver/config"
 	"github.com/NEUOJ-NG/NEUOJ-NG-judgeserver/form"
+	"github.com/NEUOJ-NG/NEUOJ-NG-judgeserver/model"
 	"github.com/NEUOJ-NG/NEUOJ-NG-judgeserver/mq"
+	myRedis "github.com/NEUOJ-NG/NEUOJ-NG-judgeserver/redis"
+	"github.com/NEUOJ-NG/NEUOJ-NG-judgeserver/util"
 	"github.com/gin-gonic/gin"
 	log "github.com/sirupsen/logrus"
 	"net/http"
+	"path/filepath"
+	"strconv"
 )
 
 // Add a new judgehost to the list of judgehosts
@@ -19,9 +25,12 @@ func PostJudgehosts(ctx *gin.Context) {
 		judgehostVersion = "Unknown"
 	}
 	hostname := ctx.PostForm("hostname")
-	log.Debugf("registering judgehost %s version %s",
-		hostname, judgehostVersion)
-	// TODO: save hostname to the list of judgehosts
+	log.Debugf(
+		"registering judgehost %s version %s",
+		hostname,
+		judgehostVersion,
+	)
+	myRedis.UpdateJudgehostHeartbeat(hostname)
 	// TODO: restart unfinished judgings
 	ctx.JSON(http.StatusOK, nil)
 }
@@ -71,14 +80,115 @@ func PostJudgings(ctx *gin.Context) {
 	judgehost := ctx.PostForm("judgehost")
 	log.Debugf("judgehost %s fetching task", judgehost)
 
-	// TODO: update judgehost timestamp in redis
+	myRedis.UpdateJudgehostHeartbeat(judgehost)
 
 	select {
 	case task := <-mq.ConsumerMessages:
 		log.Debugf("judgehost %s received a task: %s", judgehost, task.Body)
-		_ = task.Ack(false)
+		err := task.Ack(false)
+		if err != nil {
+			log.Errorf("failed to send ACK for task %s: %s", task.Body, err.Error())
+			ctx.Status(http.StatusInternalServerError)
+			return
+		}
 
-		// TODO: perform testcases & executables check and prefetch
+		// perform submissions & testcases & executables check and prefetch
+		var taskObj model.Task
+		err = json.Unmarshal(task.Body, &taskObj)
+		if err != nil {
+			log.Errorf("failed to unmarshal task json: %s", err.Error())
+			ctx.Status(http.StatusInternalServerError)
+			return
+		}
+
+		// prepare submissions
+		sid := strconv.Itoa(taskObj.SubmitID)
+		err = util.PrepareFileAsync(
+			myRedis.KEY_SUBMISSIONS,
+			sid,
+			config.GetConfig().URL.Submissions+sid,
+			filepath.Join(config.GetSubmissionStoragePath(), sid),
+			"",
+		)
+		if err != nil {
+			log.Error(err.Error())
+			ctx.Status(http.StatusInternalServerError)
+			return
+		}
+
+		// prepare executables
+		// prepare run
+		err = util.PrepareFileAsync(
+			myRedis.KEY_EXECUTABLES,
+			taskObj.Run,
+			config.GetConfig().URL.Executables+taskObj.Run,
+			filepath.Join(config.GetExecutableStoragePath(), taskObj.Run+util.POSTFIX_EXECUTABLES),
+			taskObj.RunMD5Sum,
+		)
+		if err != nil {
+			log.Error(err.Error())
+			ctx.Status(http.StatusInternalServerError)
+			return
+		}
+		// prepare compare
+		err = util.PrepareFileAsync(
+			myRedis.KEY_EXECUTABLES,
+			taskObj.Compare,
+			config.GetConfig().URL.Executables+taskObj.Compare,
+			filepath.Join(config.GetExecutableStoragePath(), taskObj.Compare+util.POSTFIX_EXECUTABLES),
+			taskObj.CompareMD5Sum,
+		)
+		if err != nil {
+			log.Error(err.Error())
+			ctx.Status(http.StatusInternalServerError)
+			return
+		}
+		// prepare compile_script
+		err = util.PrepareFileAsync(
+			myRedis.KEY_EXECUTABLES,
+			taskObj.CompileScript,
+			config.GetConfig().URL.Executables+taskObj.CompileScript,
+			filepath.Join(config.GetExecutableStoragePath(), taskObj.CompileScript+util.POSTFIX_EXECUTABLES),
+			taskObj.CompileScriptMD5Sum,
+		)
+		if err != nil {
+			log.Error(err.Error())
+			ctx.Status(http.StatusInternalServerError)
+			return
+		}
+
+		// prepare testcases
+		for _, t := range taskObj.TestCases {
+			tid := strconv.Itoa(t.TestCaseID)
+
+			// prepare input
+			err = util.PrepareFileAsync(
+				myRedis.KEY_TESTCASES,
+				tid+myRedis.KEY_POSTFIX_INPUT,
+				config.GetConfig().URL.TestCases+tid+"?type=input",
+				filepath.Join(config.GetTestCaseStoragePath(), tid+util.POSTFIX_INPUT),
+				t.MD5SumInput,
+			)
+			if err != nil {
+				log.Error(err.Error())
+				ctx.Status(http.StatusInternalServerError)
+				return
+			}
+
+			// prepare output
+			err = util.PrepareFileAsync(
+				myRedis.KEY_TESTCASES,
+				tid+myRedis.KEY_POSTFIX_OUTPUT,
+				config.GetConfig().URL.TestCases+tid+"?type=output",
+				filepath.Join(config.GetTestCaseStoragePath(), tid+util.POSTFIX_OUTPUT),
+				t.MD5SumOutput,
+			)
+			if err != nil {
+				log.Error(err.Error())
+				ctx.Status(http.StatusInternalServerError)
+				return
+			}
+		}
 
 		ctx.Data(
 			http.StatusOK,

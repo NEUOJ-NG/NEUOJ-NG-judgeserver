@@ -24,16 +24,16 @@ func InitConsumerMQ() error {
 	log.Info("connecting to RabbitMQ")
 	ConsumerConnection, err = amqp.Dial(
 		fmt.Sprintf("amqp://%s:%s@%s/",
-			config.GetConfig().AMQPConfig.Username,
-			config.GetConfig().AMQPConfig.Password,
-			config.GetConfig().AMQPConfig.Addr,
+			config.GetConfig().AMQP.Username,
+			config.GetConfig().AMQP.Password,
+			config.GetConfig().AMQP.Addr,
 		),
 	)
 	if err != nil {
 		log.Fatalf("failed to connect to RabbitMQ: %s", err.Error())
 		return err
 	}
-	log.Info("connect to RabbitMQ success")
+	log.Info("successfully connect to RabbitMQ")
 
 	// open a consumer channel
 	ConsumerChannel, err = ConsumerConnection.Channel()
@@ -41,12 +41,12 @@ func InitConsumerMQ() error {
 		log.Fatalf("failed to open a consumer channel: %s", err.Error())
 		return err
 	}
-	log.Info("open consumer success")
+	log.Info("successfully open consumer")
 
 	// declare a consumer queue
 	ConsumerQueue, err = ConsumerChannel.QueueDeclare(
-		config.GetConfig().AMQPConfig.QueueName,
-		config.GetConfig().AMQPConfig.QueueDurable,
+		config.GetConfig().AMQP.QueueName,
+		config.GetConfig().AMQP.QueueDurable,
 		false,
 		false,
 		false,
@@ -56,7 +56,7 @@ func InitConsumerMQ() error {
 		log.Fatalf("failed to declare a consumer queue: %s", err.Error())
 		return err
 	}
-	log.Infof("declare consumer queue with name %s success", ConsumerQueue.Name)
+	log.Infof("successfully declare consumer queue with name %s", ConsumerQueue.Name)
 
 	// register consumer
 	ConsumerMessages, err = ConsumerChannel.Consume(
@@ -72,7 +72,7 @@ func InitConsumerMQ() error {
 		log.Fatalf("failed to register a consumer: %s", err.Error())
 		return err
 	}
-	log.Info("register consumer success")
+	log.Info("successfully register consumer")
 
 	return nil
 }
