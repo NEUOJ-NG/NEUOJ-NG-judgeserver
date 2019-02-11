@@ -13,8 +13,8 @@ import (
 const (
 	DOWNLOAD_MAX_RETRY  = 5
 	POSTFIX_EXECUTABLES = ".zip"
-	POSTFIX_INPUT = ".in"
-	POSTFIX_OUTPUT = ".out"
+	POSTFIX_INPUT       = ".in"
+	POSTFIX_OUTPUT      = ".out"
 )
 
 var (
@@ -83,7 +83,7 @@ func PrepareFileAsync(key string, id string, url string, dest string, targetMD5S
 				}
 			}
 
-			log.Debugf("start downloading file %s from %s to %s", id, url, dest)
+			log.Debugf("start downloading file %s from %s to %s", fullID, url, dest)
 			downloadingMapLock.Lock()
 			downloadingMap[fullID] = make(chan bool)
 			downloadingMapLock.Unlock()
@@ -114,7 +114,7 @@ func PrepareFileAsync(key string, id string, url string, dest string, targetMD5S
 				// check md5sum if provided
 				if targetMD5Sum != "" && targetMD5Sum != sum {
 					rst = false
-					log.Errorf("file %s corrupted while downloading (target md5sum = %s"+
+					log.Errorf("file %s corrupted while downloading (target md5sum = %s "+
 						"while downloaded md5sum = %s", fullID, targetMD5Sum, sum)
 				} else {
 					// update md5sum to redis
@@ -133,11 +133,15 @@ func PrepareFileAsync(key string, id string, url string, dest string, targetMD5S
 			// send rst to channel with no-blocking way
 			select {
 			case downloadingMap[fullID] <- rst:
+				downloadingMapLock.RUnlock()
 				log.Debugf("notify blocking goroutines with result %x", rst)
 			default:
-				log.Debugf("no blocking goroutines")
+				downloadingMapLock.RUnlock()
+				log.Debugf("no blocking goroutines waiting for file %s", fullID)
+				downloadingMapLock.Lock()
+				delete(downloadingMap, fullID)
+				downloadingMapLock.Unlock()
 			}
-			downloadingMapLock.RUnlock()
 		}()
 	} else if err != nil {
 		return err
