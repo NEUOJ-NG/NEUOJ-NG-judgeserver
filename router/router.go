@@ -10,4 +10,7 @@ func InitRouter(r *gin.RouterGroup) {
 	r.POST("/judgehosts/internal-error", c.PostJudgehostsInternalError)
 	r.GET("/config", c.GetJudgehostConfig)
 	r.POST("/judgings", c.PostJudgings)
+	r.GET("/submission_files", c.GetSubmissionFiles)
+	r.GET("/executable", c.GetExecutable)
+	r.PUT("/judgings/:id", c.PutJudgings)
 }

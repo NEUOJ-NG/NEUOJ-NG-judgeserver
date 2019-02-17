@@ -45,19 +45,33 @@ func DownloadFile(filepath string, url string) error {
 	return err
 }
 
+func GetFileFullID(key string, id string) string {
+	return key + "_" + id
+}
+
+func IsPreparing(fullID string) bool {
+	downloadingMapLock.RLock()
+	defer downloadingMapLock.RUnlock()
+	_, ok := downloadingMap[fullID]
+	return ok
+}
+
+// block on downloadingMap[fullID]
+// IMPORTANT: make sure that fullID is a valid key of downloadingMap
+func WaitForFile(fullID string) bool {
+	return <-downloadingMap[fullID]
+}
+
 // download file async and save md5sum to redis
 // you can leave targetMD5 blank to skip md5sum check
 func PrepareFileAsync(key string, id string, url string, dest string, targetMD5Sum string) error {
 	// check if downloading is in process
-	fullID := key + "_" + id
-	downloadingMapLock.RLock()
-	if _, ok := downloadingMap[fullID]; ok {
+	fullID := GetFileFullID(key, id)
+	if IsPreparing(fullID) {
 		// avoid re-download
 		log.Debugf("file %s is already downloading", id)
-		downloadingMapLock.RUnlock()
 		return nil
 	}
-	downloadingMapLock.RUnlock()
 
 	// check redis for file existence
 	md5, err := myRedis.Client.HGet(key, id).Result()
@@ -128,20 +142,7 @@ func PrepareFileAsync(key string, id string, url string, dest string, targetMD5S
 				}
 			}
 
-			// TODO: should we use Lock here?
-			downloadingMapLock.RLock()
-			// send rst to channel with no-blocking way
-			select {
-			case downloadingMap[fullID] <- rst:
-				downloadingMapLock.RUnlock()
-				log.Debugf("notify blocking goroutines with result %x", rst)
-			default:
-				downloadingMapLock.RUnlock()
-				log.Debugf("no blocking goroutines waiting for file %s", fullID)
-				downloadingMapLock.Lock()
-				delete(downloadingMap, fullID)
-				downloadingMapLock.Unlock()
-			}
+			UpdatePrepareResult(fullID, rst)
 		}()
 	} else if err != nil {
 		return err
@@ -150,4 +151,27 @@ func PrepareFileAsync(key string, id string, url string, dest string, targetMD5S
 	}
 
 	return nil
+}
+
+// send rst to channel of downloadingMap[fullID]
+// in non-blocking way
+// delete the channel if no routine is blocked
+// on it
+// IMPORTANT: make sure that fullID is a valid key of downloadingMap
+// IMPORTANT: make sure to call this function after reading from a channel of
+// downloadingMap to avoid deadlock
+func UpdatePrepareResult(fullID string, rst bool) {
+	downloadingMapLock.RLock()
+	// send rst to channel with non-blocking way
+	select {
+	case downloadingMap[fullID] <- rst:
+		downloadingMapLock.RUnlock()
+		log.Debugf("notify blocking goroutines with result %x", rst)
+	default:
+		downloadingMapLock.RUnlock()
+		log.Debugf("no blocking goroutines waiting for file %s", fullID)
+		downloadingMapLock.Lock()
+		delete(downloadingMap, fullID)
+		downloadingMapLock.Unlock()
+	}
 }

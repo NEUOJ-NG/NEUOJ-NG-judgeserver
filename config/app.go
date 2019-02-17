@@ -4,15 +4,15 @@ import "path/filepath"
 
 const (
 	SubmissionDir = "submissions"
-	TestCaseDir = "test_cases"
+	TestCaseDir   = "test_cases"
 	ExecutableDir = "executables"
 )
 
 type appConfig struct {
-	Addr          string   `toml:"addr"`
-	LogFile       string   `toml:"log_file"`
-	LogLevel      string   `toml:"log_level"`
-	StoragePath   string   `toml:"storage_path"`
+	Addr        string `toml:"addr"`
+	LogFile     string `toml:"log_file"`
+	LogLevel    string `toml:"log_level"`
+	StoragePath string `toml:"storage_path"`
 }
 
 func GetSubmissionStoragePath() string {
