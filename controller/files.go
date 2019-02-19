@@ -81,3 +81,80 @@ func GetExecutable(ctx *gin.Context) {
 		true,
 	)
 }
+
+func GetTestCases(ctx *gin.Context) {
+	id := ctx.Query("judgingid")
+
+	// get current test case ID
+	nowTID, err := myRedis.Client.HGet(
+		myRedis.KEY_PREFIX_JUDGING+id,
+		myRedis.KEY_TESTCASE_NOW,
+	).Result()
+	if err != nil {
+		log.Errorf("failed to get current test case ID for judging %s: %s", id, err.Error())
+		ctx.Status(http.StatusInternalServerError)
+		return
+	}
+	log.Debugf("current test case ID for judging %s is %s", id, nowTID)
+
+	// get next test case info from redis
+	tInfo, err := myRedis.Client.HGet(
+		myRedis.KEY_PREFIX_JUDGING+id,
+		myRedis.KEY_PREFIX_TESTCASE+nowTID,
+	).Result()
+	if err == redis.Nil {
+		// no more test case, just return empty array
+		log.Debugf("no more test case for judging %s", id)
+		ctx.Data(http.StatusOK, "application/json", []byte("[]"))
+		return
+	} else if err != nil {
+		log.Errorf("failed to get next test case for judging %s: %s", id, err.Error())
+		ctx.Status(http.StatusInternalServerError)
+		return
+	} else {
+		// increase current test case ID
+		err := myRedis.Client.HIncrBy(
+			myRedis.KEY_PREFIX_JUDGING+id,
+			myRedis.KEY_TESTCASE_NOW,
+			1,
+		).Err()
+		if err != nil {
+			log.Errorf("failed to increase current test case ID for judging %s: %s", id, err.Error())
+			ctx.Status(http.StatusInternalServerError)
+			return
+		}
+
+		ctx.Data(http.StatusOK, "application/json", []byte(tInfo))
+		return
+	}
+}
+
+func GetTestCaseFiles(ctx *gin.Context) {
+	id := ctx.Query("testcaseid")
+	_, isInput := ctx.Request.URL.Query()["input"]
+	_, isOutput := ctx.Request.URL.Query()["output"]
+
+	if isInput {
+		GetFiles(
+			ctx,
+			myRedis.KEY_TESTCASES,
+			id+myRedis.KEY_POSTFIX_INPUT,
+			filepath.Join(config.GetTestCaseStoragePath(), id+util.POSTFIX_INPUT),
+			true,
+		)
+		return
+	} else if isOutput {
+		GetFiles(
+			ctx,
+			myRedis.KEY_TESTCASES,
+			id+myRedis.KEY_POSTFIX_OUTPUT,
+			filepath.Join(config.GetTestCaseStoragePath(), id+util.POSTFIX_OUTPUT),
+			true,
+		)
+		return
+	} else {
+		log.Errorf("unknown test case file type, query is %v", ctx.Request.URL.Query())
+		ctx.Status(http.StatusBadRequest)
+		return
+	}
+}

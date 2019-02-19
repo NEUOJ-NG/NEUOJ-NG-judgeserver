@@ -60,9 +60,10 @@ func GetJudgehostConfig(ctx *gin.Context) {
 }
 
 // API for judgehost to report internal errors.
-func PostJudgehostsInternalError(ctx *gin.Context) {
+func PostInternalError(ctx *gin.Context) {
 	var internalError form.InternalError
 	if err := ctx.ShouldBind(&internalError); err != nil {
+		log.Error(err.Error())
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 	} else {
 		// TODO: save internal error and return auto-increment ID
@@ -158,7 +159,10 @@ func PostJudgings(ctx *gin.Context) {
 		}
 
 		// prepare testcases
-		for _, t := range taskObj.TestCases {
+		for i, t := range taskObj.TestCases {
+			// propagate problem ID to testcases
+			taskObj.TestCases[i].ProbID = taskObj.ProbID
+
 			tid := strconv.Itoa(t.TestCaseID)
 
 			// prepare input
@@ -189,6 +193,16 @@ func PostJudgings(ctx *gin.Context) {
 				return
 			}
 		}
+
+		// save judging info to redis
+		err = myRedis.InitJudging(taskObj)
+		if err != nil {
+			log.Errorf("failed to save judging info to redis: %s", err.Error())
+			ctx.Status(http.StatusInternalServerError)
+			return
+		}
+
+		// TODO: perform judging info GC
 
 		ctx.Data(
 			http.StatusOK,
