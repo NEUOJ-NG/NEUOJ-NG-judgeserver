@@ -166,7 +166,7 @@ func UpdatePrepareResult(fullID string, rst bool) {
 	select {
 	case downloadingMap[fullID] <- rst:
 		downloadingMapLock.RUnlock()
-		log.Debugf("notify blocking goroutines with result %x", rst)
+		log.Debugf("notify blocking goroutines with result %v", rst)
 	default:
 		downloadingMapLock.RUnlock()
 		log.Debugf("no blocking goroutines waiting for file %s", fullID)

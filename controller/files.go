@@ -1,15 +1,16 @@
 package controller
 
 import (
+	"encoding/json"
 	"github.com/NEUOJ-NG/NEUOJ-NG-judgeserver/config"
 	myRedis "github.com/NEUOJ-NG/NEUOJ-NG-judgeserver/redis"
 	"github.com/NEUOJ-NG/NEUOJ-NG-judgeserver/util"
 	"github.com/gin-gonic/gin"
-	"github.com/gin-gonic/gin/json"
 	"github.com/go-redis/redis"
 	log "github.com/sirupsen/logrus"
 	"net/http"
 	"path/filepath"
+	"strconv"
 )
 
 // base function for judgehost to get files.
@@ -85,7 +86,7 @@ func GetExecutable(ctx *gin.Context) {
 func GetTestCases(ctx *gin.Context) {
 	id := ctx.Query("judgingid")
 
-	// get current test case ID
+	// get current test case ID from redis
 	nowTID, err := myRedis.Client.HGet(
 		myRedis.KEY_PREFIX_JUDGING+id,
 		myRedis.KEY_TESTCASE_NOW,
@@ -95,37 +96,59 @@ func GetTestCases(ctx *gin.Context) {
 		ctx.Status(http.StatusInternalServerError)
 		return
 	}
+	nowTIDInt, _ := strconv.Atoi(nowTID)
 	log.Debugf("current test case ID for judging %s is %s", id, nowTID)
 
-	// get next test case info from redis
-	tInfo, err := myRedis.Client.HGet(
+	// get test case rank list from redis
+	rankListJson, err := myRedis.Client.HGet(
 		myRedis.KEY_PREFIX_JUDGING+id,
-		myRedis.KEY_PREFIX_TESTCASE+nowTID,
+		myRedis.KEY_TESTCASE_RANK_LIST,
 	).Result()
-	if err == redis.Nil {
+	if err != nil {
+		log.Errorf("failed to get test case rank list for judging %s: %s", id, err.Error())
+		ctx.Status(http.StatusInternalServerError)
+		return
+	}
+	var ranks []int
+	err = json.Unmarshal([]byte(rankListJson), &ranks)
+	if err != nil {
+		log.Errorf("failed to get test case rank list for judging %s: %s", id, err.Error())
+		ctx.Status(http.StatusInternalServerError)
+		return
+	}
+	log.Debugf("rank list for judging %s is %v", id, ranks)
+
+	// get next test case info from redis
+	if nowTIDInt >= len(ranks) {
 		// no more test case, just return empty array
 		log.Debugf("no more test case for judging %s", id)
 		ctx.Data(http.StatusOK, "application/json", []byte("[]"))
 		return
-	} else if err != nil {
-		log.Errorf("failed to get next test case for judging %s: %s", id, err.Error())
-		ctx.Status(http.StatusInternalServerError)
-		return
 	} else {
-		// increase current test case ID
-		err := myRedis.Client.HIncrBy(
+		tInfo, err := myRedis.Client.HGet(
 			myRedis.KEY_PREFIX_JUDGING+id,
-			myRedis.KEY_TESTCASE_NOW,
-			1,
-		).Err()
+			myRedis.KEY_PREFIX_TESTCASE+strconv.FormatInt(int64(ranks[nowTIDInt]), 10),
+		).Result()
 		if err != nil {
-			log.Errorf("failed to increase current test case ID for judging %s: %s", id, err.Error())
+			log.Errorf("failed to get next test case for judging %s: %s", id, err.Error())
 			ctx.Status(http.StatusInternalServerError)
 			return
-		}
+		} else {
+			// increase current test case ID
+			err := myRedis.Client.HIncrBy(
+				myRedis.KEY_PREFIX_JUDGING+id,
+				myRedis.KEY_TESTCASE_NOW,
+				1,
+			).Err()
+			if err != nil {
+				log.Errorf("failed to increase current test case ID for judging %s: %s", id, err.Error())
+				ctx.Status(http.StatusInternalServerError)
+				return
+			}
 
-		ctx.Data(http.StatusOK, "application/json", []byte(tInfo))
-		return
+			ctx.Data(http.StatusOK, "application/json", []byte(tInfo))
+			return
+		}
 	}
 }
 

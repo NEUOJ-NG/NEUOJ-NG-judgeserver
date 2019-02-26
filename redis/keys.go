@@ -1,12 +1,13 @@
 package redis
 
 const (
-	KEY_JUDGEHOST       = "judgehost"
-	KEY_SUBMISSIONS     = "submissions"
-	KEY_EXECUTABLES     = "executables"
-	KEY_TESTCASES       = "test_cases"
-	KEY_TESTCASES_TOTAL = "test_cases_total"
-	KEY_TESTCASE_NOW    = "test_case_now"
+	KEY_JUDGEHOST          = "judgehost"
+	KEY_SUBMISSIONS        = "submissions"
+	KEY_EXECUTABLES        = "executables"
+	KEY_TESTCASES          = "test_cases"
+	KEY_TESTCASES_TOTAL    = "test_cases_total"
+	KEY_TESTCASE_NOW       = "test_case_now"
+	KEY_TESTCASE_RANK_LIST = "test_case_rank_list"
 
 	KEY_PREFIX_JUDGING  = "judging_"
 	KEY_PREFIX_TESTCASE = "test_case_"

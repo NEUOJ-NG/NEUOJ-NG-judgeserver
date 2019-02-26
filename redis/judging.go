@@ -1,10 +1,10 @@
 package redis
 
 import (
+	"encoding/json"
 	"github.com/NEUOJ-NG/NEUOJ-NG-judgeserver/model"
-	"github.com/gin-gonic/gin/json"
 	log "github.com/sirupsen/logrus"
-	"math"
+	"sort"
 	"strconv"
 )
 
@@ -12,7 +12,6 @@ const INT_MAX = int(^uint(0) >> 1)
 
 // init a judging info in redis
 // the judging info is then used through the whole judging process
-// IMPORTANT: we assume that the rank of test cases are consecutive
 func InitJudging(judging model.Task) error {
 	judgingID := KEY_PREFIX_JUDGING + strconv.FormatInt(int64(judging.JudgingID), 10)
 
@@ -27,7 +26,7 @@ func InitJudging(judging model.Task) error {
 	}
 
 	// save judging info into a hash table
-	startRank := INT_MAX
+	ranks := make([]int, 0)
 	for _, t := range judging.TestCases {
 		tJson, err := json.Marshal(t)
 		if err != nil {
@@ -43,11 +42,20 @@ func InitJudging(judging model.Task) error {
 			return err
 		}
 
-		startRank = int(math.Min(float64(startRank), float64(t.Rank)))
+		ranks = append(ranks, t.Rank)
 	}
+
+	// sort test cases ranks
+	sort.Ints(ranks)
+	sortedRankListJson, err := json.Marshal(ranks)
+	if err != nil {
+		return err
+	}
+
 	err = Client.HMSet(judgingID, map[string]interface{}{
-		KEY_TESTCASE_NOW:    startRank,
-		KEY_TESTCASES_TOTAL: len(judging.TestCases),
+		KEY_TESTCASE_RANK_LIST: string(sortedRankListJson),
+		KEY_TESTCASE_NOW:       0,
+		KEY_TESTCASES_TOTAL:    len(judging.TestCases),
 	}).Err()
 	if err != nil {
 		return err
