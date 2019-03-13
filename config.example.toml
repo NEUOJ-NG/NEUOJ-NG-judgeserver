@@ -5,9 +5,11 @@ log_level="debug" # possible values: trace, debug, info, warn, warning, error, f
 storage_path="./storage"
 
 [url]
-submissions="http://127.0.0.1:8082/submissions/"
-executables="http://127.0.0.1:8082/executables/"
-test_cases="http://127.0.0.1:8082/test_cases/"
+username="neuoj"
+password="neuoj"
+submissions="http://noj.homestead.com/api/v4/submission_files/"
+executables="http://noj.homestead.com/api/v4/executable/"
+test_cases="http://noj.homestead.com/api/v4/testcase_files/"
 
 [amqp]
 addr="127.0.0.1:5672"

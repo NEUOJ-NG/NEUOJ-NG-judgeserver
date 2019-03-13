@@ -1,6 +1,9 @@
 package util
 
 import (
+	"errors"
+	"fmt"
+	"github.com/NEUOJ-NG/NEUOJ-NG-judgeserver/config"
 	myRedis "github.com/NEUOJ-NG/NEUOJ-NG-judgeserver/redis"
 	"github.com/go-redis/redis"
 	log "github.com/sirupsen/logrus"
@@ -26,10 +29,26 @@ var (
 // DownloadFile will download a url to a local file. It's efficient because it will
 // write as it downloads and not load the whole file into memory.
 func DownloadFile(filepath string, url string) error {
-	// get the data
-	resp, err := http.Get(url)
+	// create request with basic auth
+	client := &http.Client{
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			req.SetBasicAuth(config.GetConfig().URL.Username, config.GetConfig().URL.Password)
+			return nil
+		},
+	}
+	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return err
+	}
+	req.SetBasicAuth(config.GetConfig().URL.Username, config.GetConfig().URL.Password)
+
+	// get the data
+	resp, err := client.Do(req)
+	if err != nil {
+		return err
+	}
+	if resp.StatusCode != http.StatusOK {
+		return errors.New(fmt.Sprintf("server returns status %d", resp.StatusCode))
 	}
 	defer resp.Body.Close()
 
@@ -73,9 +92,22 @@ func PrepareFileAsync(key string, id string, url string, dest string, targetMD5S
 		return nil
 	}
 
-	// check redis for file existence
+	// check filesystem for file existence
+	// WARNING: we don't check md5 of files due to possible
+	//          performance issue
+	var fsExistFlag bool
+	if _, err := os.Stat(dest); err == nil {
+		fsExistFlag = true
+	} else if os.IsNotExist(err) {
+		fsExistFlag = false
+	} else {
+		return err
+	}
+
+	// check redis for file existence and file md5
 	md5, err := myRedis.Client.HGet(key, id).Result()
-	missingFile := err == redis.Nil
+
+	missingFile := (err == redis.Nil) || (fsExistFlag == false)
 	invalidFile := err == nil && targetMD5Sum != "" && md5 != targetMD5Sum
 	if missingFile || invalidFile {
 		if missingFile {
