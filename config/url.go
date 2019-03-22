@@ -6,4 +6,6 @@ type urlConfig struct {
 	Submissions string `toml:"submissions"`
 	Executables string `toml:"executables"`
 	TestCases   string `toml:"test_cases"`
+	Judgings    string `toml:"judgings"`
+	JudgingRuns string `toml:"judging_runs"`
 }

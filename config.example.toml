@@ -10,6 +10,8 @@ password="neuoj"
 submissions="http://noj.homestead.com/api/v4/submission_files/"
 executables="http://noj.homestead.com/api/v4/executable/"
 test_cases="http://noj.homestead.com/api/v4/testcase_files/"
+judgings="http://noj.homestead.com/api/v4/judgings/"
+judging_runs="http://noj.homestead.com/api/v4/judging_runs/"
 
 [amqp]
 addr="127.0.0.1:5672"

@@ -83,6 +83,9 @@ func WaitForFile(fullID string) bool {
 
 // download file async and save md5sum to redis
 // you can leave targetMD5 blank to skip md5sum check
+// IMPORTANT: Skipping md5sum check might cause problems
+//            such as using stale cached version of files.
+//            So be careful.
 func PrepareFileAsync(key string, id string, url string, dest string, targetMD5Sum string) error {
 	// check if downloading is in process
 	fullID := GetFileFullID(key, id)
